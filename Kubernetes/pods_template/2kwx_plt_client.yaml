@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+   # Enter NAD details for SRIOV Kernel vNICBindingType
+    k8s.v1.cni.cncf.io/networks: sriov-nad-v6-kw
+  labels:
+    name: client-pod
+    owner: touchstone
+    role: client
+  name: client-pod
+spec:
+  containers:
+  - image: voereir/touchstone-server-ubuntu:v4.2.0
+    imagePullPolicy: IfNotPresent
+    name: container-client-pod
+    resources:
+      limits:
+        cpu: "4"
+        hugepages-1Gi: 2048Mi
+        memory: 2000Mi
+        # Add Resource name with number of direct ports
+        intel.com/intel_sriov_netdevice: 1
+    securityContext:
+      privileged: true
+      runAsUser: 0
+      capabilities:
+        add:
+        - NET_ADMIN
+        - IPC_LOCK
+    volumeMounts:
+    - mountPath: /lib/modules
+      name: lib-modules-eujqq
+      readOnly: false
+    - mountPath: /dev/hugepages
+      name: hugepage
+  volumes:
+  - hostPath:
+      path: /lib/modules
+    name: lib-modules-eujqq
+  - emptyDir:
+      medium: HugePages
+    name: hugepage
