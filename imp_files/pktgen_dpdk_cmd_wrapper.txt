@@ -1,0 +1,242 @@
+################################################################################
+# Copyright (c) 2016 VoerEir AB - All Rights Reserved                          #
+# Unauthorized copying of this file, via any medium is strictly prohibited     #
+# Proprietary and confidential                                                 #
+# Md Safiyat Reza <safiyat@voereir.com>, March 2017                            #
+################################################################################
+
+"""
+A wrapper script written in python to populate lua command files to be consumed
+by pktgen-dpdk.
+
+The information is obtained via commandline arguments. The supported arguments
+can be viewed by running `python pktgen_dpdk_cmd_wrapper.py --help`.
+
+The script handles arguments for both sender and receiver command files.
+
+
+Flow:
+- The arguments from the commandline are parsed and used to populate the command
+  files.
+- Optional arguments not passed on the commandline are supplied using default
+  values.
+- The values are used to populate a sender or receiver command file in the temp
+  directory.
+- Pktgen-dpdk is executed with some of the commandline arguments supplied by the
+  user and default values if not provided.
+- The stdout and stderr streams are written to a file and printed on the screen
+  once the process has completed.
+"""
+
+from __future__ import print_function
+import argparse
+import os
+import re
+import shlex
+import socket
+import subprocess
+import sys
+import tempfile
+import pty
+
+
+RTE_SDK = '/opt/dpdk'
+PKTGEN_ROOT = '/opt/pktgen-dpdk'
+PKTGEN_BINARY = 'app/x86_64-native-linuxapp-gcc/pktgen'
+
+
+class ValidateIPv4(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        argparse.Action.__init__(self, option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        ip_addr = socket.inet_ntoa(socket.inet_aton(values))
+        setattr(namespace, self.dest, ip_addr)
+
+
+class ValidateMACAddress(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        argparse.Action.__init__(self, option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if re.match(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', values):
+            setattr(namespace, self.dest, values)
+        else:
+            raise ValueError('%s is not a valid MAC address.' % values)
+
+
+def get_parser():
+    parser = argparse.ArgumentParser()
+
+    common_parser = argparse.ArgumentParser(add_help=False)
+
+    common_parser.add_argument(
+        '-si', '--self-ip', type=str, action=ValidateIPv4, required=True,
+        help='The IP of the interface on this machine.')
+    common_parser.add_argument(
+        '-sm', '--self-mac', type=str, action=ValidateMACAddress, required=True,
+        help='The MAC address of the interface on this machine.')
+    common_parser.add_argument(
+        '-ri', '--remote-ip', type=str, action=ValidateIPv4, required=True,
+        help='The IP of the interface on the remote machine.')
+    common_parser.add_argument(
+        '-rm', '--remote-mac', type=str, action=ValidateMACAddress,
+        required=True, help='The MAC address of the interface on the remote '
+                            'machine or the router in case of L3.')
+    common_parser.add_argument(
+        '-t', '--exec-time', type=int, default=10,
+        help='Execution time in seconds.')
+    common_parser.add_argument(
+        '-et', '--extra-time', type=int, default=3,
+        help='Extra time in seconds for waiting till all the buffers and queues'
+             ' are empty.')
+
+    common_parser.add_argument(
+        '-f', '--template-file', type=file, required=True,
+        help='Path to the template file to be populated.')
+
+    common_parser.add_argument(
+        '-e', '--eal', type=str, required=True,
+        help='The EAL options to be applied.')
+    common_parser.add_argument(
+        '-p', '--use-promiscuous', type=bool, default=False,
+        help='Enable or disable promiscuous mode for the port.')
+
+    common_parser.add_argument(
+        '-pm', '--port-mapping', type=str, default='1.0',
+        help='Matrix for mapping ports to logical cores.')
+
+    # You won't ever have to use these, except in rare occasions.
+    common_parser.add_argument(
+        '--rte-sdk', type=str, default=RTE_SDK,
+        help='Path to the RTE_SDK.')
+    common_parser.add_argument(
+        '--pktgen-dpdk-root', type=str, default=PKTGEN_ROOT,
+        help='Path to the pktgen-dpdk root.')
+    common_parser.add_argument(
+        '--binary', type=str,
+        default=PKTGEN_BINARY,
+        help='Path to the pktgen binary from pktgen-dpdk root.')
+
+    subparsers = parser.add_subparsers(
+        title='Subcommands', description='Valid subcommands.')
+
+    receiver_subparser = subparsers.add_parser(
+        'receiver', description='Commands supported with receiver.',
+        parents=[common_parser])
+
+    sender_subparser = subparsers.add_parser(
+        'sender', description='Commands supported with sender.',
+        parents=[common_parser])
+
+    sender_subparser.add_argument('--packet-size', type=int, default=64,
+                                  help='Size of packet to transmit.')
+    sender_subparser.add_argument('--no-of-ports', type=int, default=1,
+                                  help='No of ports.')
+    sender_subparser.add_argument(
+        '--pps', type=int, default=14880952,
+        help='The rate at which to send. Should be in Packets per Second.')
+    sender_subparser.add_argument('--burst-packets', type=int, default=64,
+                                  help='Number of packets in a burst.')
+    sender_subparser.add_argument('--vlan-id', type=int, default=1,
+                                  help='Set the VLAN ID for the ports.')
+
+    return parser
+
+
+def prepare_command_file(args):
+    command_file = args.template_file.read()
+
+    command_file = command_file.replace('{{SRC_MAC}}', args.self_mac)
+    command_file = command_file.replace('{{DEST_IP}}', args.remote_ip)
+    command_file = command_file.replace('{{DEST_MAC}}', args.remote_mac)
+    command_file = command_file.replace('{{SRC_IP_START}}', args.self_ip)
+    command_file = command_file.replace('{{SRC_IP_MIN}}', args.self_ip)
+    command_file = command_file.replace('{{SRC_IP_MAX}}', args.self_ip)
+    command_file = command_file.replace('{{SRC_IP_INC}}', '0.0.0.0')
+    command_file = command_file.replace('{{DEST_IP_START}}', args.remote_ip)
+    command_file = command_file.replace('{{DEST_IP_MIN}}', args.remote_ip)
+    command_file = command_file.replace('{{DEST_IP_MAX}}', args.remote_ip)
+    command_file = command_file.replace('{{DEST_IP_INC}}', '0.0.0.0')
+    command_file = command_file.replace('{{DEST_MAC_INC}}',
+                                        '00:00:00:00:00:00')
+
+    # Check is sender.
+    if hasattr(args, 'packet_size'):
+        command_file = command_file.replace('{{PKT_SIZE}}',
+                                            str(args.packet_size))
+        command_file = command_file.replace('{{PPS}}', str(args.pps))
+        command_file = command_file.replace('{{BURST}}',
+                                            str(args.burst_packets))
+        command_file = command_file.replace('{{VLAN_ID}}', str(args.vlan_id))
+        command_file = command_file.replace('{{NO_OF_PORTS}}',
+                                            str(args.no_of_ports))
+
+    else:
+        # No parameter specific to receiver. As of yet.
+        pass
+    command_file = command_file.replace('{{EXEC_TIME}}', str(args.exec_time))
+    command_file = command_file.replace('{{EXTRA_TIME}}', str(args.extra_time))
+
+    fd, filename = tempfile.mkstemp()
+    with os.fdopen(fd, 'w') as fp:
+        fp.write(command_file)
+    os.rename(filename, filename + '.lua')
+    return filename + '.lua'
+
+
+def get_command(args, filename):
+    env = dict()
+    env['RTE_SDK'] = args.rte_sdk
+
+    cmd = [args.binary, args.eal, '--', '-m', args.port_mapping]
+    if args.use_promiscuous:
+        cmd.append('-P')
+    cmd.extend(['-f', filename])
+
+    return ' '.join(cmd), env
+
+
+def run_command(cmd, env=None, stdin=None, current_working_directory=None,
+                sudo=False):
+    stdout_fd, stdout_fn = tempfile.mkstemp()
+    stderr_fd, stderr_fn = tempfile.mkstemp()
+
+    if sudo:
+        cmd = ' '.join(['sudo', cmd])
+    print("Executing command: `%s`" % cmd)
+
+    master, slave = pty.openpty()
+    popen = subprocess.Popen(
+        shlex.split(cmd), preexec_fn=os.setsid, shell=False,
+        stdin=slave, stdout=stdout_fd, stderr=stderr_fd,
+        cwd=current_working_directory, env=env)
+    if stdin is not None:
+        popen.stdin.write(stdin)
+    rc = popen.wait()
+
+    with open(stdout_fn, 'r') as fp:
+        stdout = fp.read()
+
+    with open(stderr_fn, 'r') as fp:
+        stderr = fp.read()
+
+    return rc, stdout, stderr
+
+
+def main():
+    parser = get_parser()
+    args = parser.parse_args()
+    lua_file_name = prepare_command_file(args)
+    command, environment = get_command(args, lua_file_name)
+    rc, stdout, stderr = \
+        run_command(command, environment,
+                    current_working_directory=args.pktgen_dpdk_root, sudo=True)
+
+    print(stderr.strip(), file=sys.stderr)
+    print(stdout.strip())
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())
