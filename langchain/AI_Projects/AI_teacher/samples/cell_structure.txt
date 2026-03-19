@@ -1,0 +1,42 @@
+CELL STRUCTURE — QUICK NOTES
+============================
+
+Definition:
+Cell is the basic structural and functional unit of life.
+
+--------------------------------------------------
+
+Types of Cells:
+- Prokaryotic (no nucleus, simple)
+- Eukaryotic (true nucleus, complex)
+
+--------------------------------------------------
+
+Cell Organelles:
+- Nucleus: controls activities
+- Mitochondria: produces energy (ATP)
+- Ribosomes: protein synthesis
+- Endoplasmic Reticulum: transport system
+- Golgi Apparatus: packaging and secretion
+
+--------------------------------------------------
+
+Cell Membrane:
+- Semi-permeable
+- Controls entry and exit of substances
+
+--------------------------------------------------
+
+Cytoplasm:
+- Jelly-like substance where reactions occur
+
+--------------------------------------------------
+
+Importance:
+- Maintains life processes
+- Helps in growth and reproduction
+
+--------------------------------------------------
+
+Summary:
+Cell = basic unit + contains organelles for functions
