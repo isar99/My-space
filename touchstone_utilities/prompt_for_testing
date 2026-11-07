@@ -1,0 +1,321 @@
+TOUCHSTONE OVERVIEW
+==================
+
+1. Introduction
+---------------
+
+Touchstone is a benchmarking platform used to evaluate the performance, functionality, scalability, stability, and reliability of cloud environments. It allows users to create environments, organize test suites, execute benchmark tests, monitor executions, and analyze results through reports and graphs.
+
+The typical Touchstone workflow is:
+
+1. Create an Environment.
+2. Create a Test Suite.
+3. Add Test Cases.
+4. Configure execution parameters.
+5. Execute the Test Suite.
+6. Monitor the execution.
+7. Review reports and graphs.
+8. Compare results with reference benchmarks.
+
+
+====================================================================
+2. Environments
+====================================================================
+
+An Environment represents the cloud platform where benchmark tests are executed.
+
+Touchstone supports two environment types:
+
+• Kubernetes
+• OpenStack
+
+
+2.1 Kubernetes
+--------------
+
+Kubernetes is a container orchestration platform used to deploy and manage containerized workloads.
+
+Touchstone supports both private and public Kubernetes clusters.
+
+Private Kubernetes Clusters
+
+• SR-IOV
+  - Intel NIC-based cluster
+
+• OCP (OpenShift Container Platform)
+  - Mellanox (MLNX) NIC-based cluster
+
+• Multimaster
+  - Multiple master node configuration
+
+Public Kubernetes Clusters
+
+• Google Kubernetes Engine (GKE)
+• Amazon Elastic Kubernetes Service (EKS)
+• Azure Kubernetes Service (AKS)
+
+Note:
+Public cloud environments require billing to be enabled before they can be used.
+
+
+2.2 OpenStack
+-------------
+
+OpenStack is an Infrastructure-as-a-Service (IaaS) platform used to provision virtual machines.
+
+Supported OpenStack releases:
+
+• Zed
+• Bobcat
+
+OpenStack also serves as the underlying infrastructure for creating internal Kubernetes clusters.
+
+
+====================================================================
+3. Dashboard
+====================================================================
+
+The Dashboard provides a high-level overview of the Touchstone system.
+
+It displays:
+
+• Total number of Environments
+• Total number of Test Suites
+• Executions currently in progress
+• Active executions (filterable by All or Mine)
+• Recent execution results
+• Recent execution history for a selected environment
+
+Quick Access Links
+
+• Create Test Suite
+• API Documentation
+• Help Documentation
+
+
+====================================================================
+4. Test Suites and Test Cases
+====================================================================
+
+4.1 Test Suites
+---------------
+
+A Test Suite is a collection of related Test Cases grouped by a testing area.
+
+When a new Touchstone VM is created, it contains only the system-defined Test Suites for that release.
+
+Users typically create their own Test Suites by selecting the required Test Cases.
+
+Industry benchmark Test Suites are also available as reference baselines for performance comparison.
+
+
+4.2 Test Cases
+--------------
+
+A Test Case represents a specific benchmark scenario executed against an environment.
+
+Each Test Case consists of:
+
+• Scenario
+• Tool
+• Context
+
+
+Scenarios
+---------
+
+Examples include:
+
+• Throughput
+• Latency
+• Network Latency
+• Packet Loss
+
+Most Test Cases support both IPv4 and IPv6.
+
+
+Tools
+-----
+
+Each benchmarking tool has a unique identifier.
+
+Examples:
+
+Tool ID    Tool
+-------    ----------------
+1          iperf
+2          pktgen
+11         pro
+21         trafgen
+
+
+Context
+-------
+
+Context defines how a Test Case is executed.
+
+Examples:
+
+• KG - Different nodes
+• KA - Same node
+
+Contexts are classified into two categories.
+
+Existing Context
+
+• Resources are created before execution.
+• Execution uses those existing resources.
+• Test Cases are identified with an additional "X".
+• Resource definitions are provided through YAML files.
+
+Non-Existing Context
+
+• Touchstone automatically creates the required resources.
+• Kubernetes uses a server image.
+• OpenStack uses a QCOW2 image.
+
+These images contain all required benchmarking tools.
+
+
+====================================================================
+5. Test Areas
+====================================================================
+
+5.1 Kubernetes Test Areas
+--------------------------
+
+• NFVI Performance
+• NFVI Functional
+• NFVI High Availability
+• NFVI Service
+• NFVI Scalability
+• NFVI Robustness
+• Stability
+• Robot
+• CISM Functional and Conformance
+• CISM Security Conformance
+• CISM Health Checks
+• CISM Vulnerability
+• CISM Robustness
+• CISM Performance
+• O-RAN
+
+
+5.2 OpenStack Test Areas
+-------------------------
+
+• NFVI Performance
+• NFVI Functional
+• NFVI High Availability
+• NFVI Service
+• VIM Performance
+• VIM Functional
+• VIM Conformance
+• VIM Burst
+• VIM High Availability
+• Stability
+• Health Checks
+• Robot
+
+
+====================================================================
+6. Test Execution
+====================================================================
+
+A Test Suite is executed on a selected Environment with the required execution parameters.
+
+Each execution follows these stages:
+
+1. Initialization
+2. Context Creation
+3. Benchmark Execution
+4. Result Collection
+5. Cleanup
+
+Execution history is maintained on the Execution page.
+
+
+====================================================================
+7. Benchmark Images
+====================================================================
+
+Different environment types require different execution images.
+
+Kubernetes
+
+• A Docker image containing the latest benchmark code is used to execute Kubernetes NFVI Test Cases.
+
+OpenStack
+
+• A QCOW2 image containing the latest benchmark code is used to execute OpenStack NFVI Test Cases.
+
+Bare Metal
+
+Bare metal execution requires a Host SSH Proxy.
+
+The Host SSH Proxy contains:
+
+• Whitelist of permitted commands
+• Blacklist of restricted commands
+
+This controls which commands Touchstone is allowed to execute on the host.
+
+
+====================================================================
+8. Reports
+====================================================================
+
+After execution completes, Touchstone generates execution reports.
+
+Reports include:
+
+• Benchmark results
+• Reference comparison
+• Performance metrics
+• Graphical visualization of benchmark results
+
+Reports are linked to each execution and can be viewed from the Execution page.
+
+
+====================================================================
+9. Monitoring
+====================================================================
+
+Touchstone provides monitoring during execution at both:
+
+• Node level
+• Container level
+
+Monitoring is visualized using Grafana dashboards.
+
+Common metrics include:
+
+• CPU utilization
+• Memory utilization
+
+
+====================================================================
+10. APIs and Documentation
+====================================================================
+
+Touchstone provides quick access to:
+
+• Swagger API Documentation
+• Help Documentation
+• Management Portal
+
+
+====================================================================
+11. Complete Touchstone Workflow
+====================================================================
+
+1. Create an Environment.
+2. Select Kubernetes or OpenStack.
+3. Create a custom Test Suite.
+4. Add the required Test Cases.
+5. Configure execution parameters.
+6. Execute the Test Suite.
+7. Monitor execution using Grafana.
+8. View execution reports.
+9. Analyze graphs and benchmark results.
+10. Compare results with reference benchmark suites.
