@@ -1,13 +1,14 @@
 import uuid
-from flask import request
 from flask_smorest import Blueprint, abort
 from flask.views import MethodView
+from schema import StoreSchema
 from db import stores
 
 blp = Blueprint("stores", __name__, description="Operations on Stores")
 
 @blp.route("/store/<string:store_id>")
 class Store(MethodView):
+    @blp.response(200, StoreSchema)
     def get(self,store_id):
         try:
             return stores[store_id]
@@ -20,27 +21,27 @@ class Store(MethodView):
             return {"message": "Store deleted"}
         except KeyError:
             abort(404, message="Store not found.")
-            
-    def put(self,store_id):
-        store_data = request.get_json()
-        if "name" not in store_data:
-            abort(400,
-                  description="Bad request. Ensure store name is provided")
+
+    @blp.arguments(StoreSchema)
+    @blp.response(201, StoreSchema)
+    def put(self,store_data,store_id):
         try:
             store = stores[store_id]
             store |= store_data
-            return store, 201
+            return 201, store
         except KeyError:
             abort(404, message="Store not found.")
 
 
 @blp.route("/store")
 class StoreList(MethodView):
+    @blp.response(200, StoreSchema(many=True))
     def get(self):
-        return {"stores": list(stores.values())}
+        return stores.values()
 
-    def post(self):
-        store_data = request.get_json()
+    @blp.arguments(StoreSchema)
+    @blp.response(201, StoreSchema)
+    def post(self, store_data):
         store_id = uuid.uuid4().hex
         name_in_stores = []
         for val in stores.values():
@@ -48,6 +49,6 @@ class StoreList(MethodView):
         if store_data["name"] not in name_in_stores:
             store = {**store_data, "id": store_id}
             stores[store_id] = store
-            return store, 201
-        return "Duplicate Stores", 429
+            return 201, store
+        abort(429, description="Duplicate Stores")
 
